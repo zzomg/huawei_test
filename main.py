@@ -1,11 +1,7 @@
-import sklearn
 import pandas as pd
-import numpy as np
-import csv
+from sklearn.preprocessing import normalize
 
-from sklearn.compose import ColumnTransformer
-from sklearn.preprocessing import OneHotEncoder, normalize
-from utils import _read_csv, _create_unify_cols, _get_col_type
+from utils import _is_categorical
 
 
 def load_csv(path):
@@ -16,48 +12,51 @@ def load_csv(path):
 
 class DatasetObject:
     def __init__(self):
-        self.cols = None
         self.dataset = None
 
     def __repr__(self):
         return f"{self.dataset}"
 
     def _load_csv(self, path):
-        header, rows = _read_csv(path)
-        for row in rows:
-            assert len(header) == len(row), f"Shape mismatch: row should have {len(header)} elements, got {len(row)}"
-        self.cols = header
-        # self.dataset = _create_unify_cols(rows)
-        self.dataset = np.array(rows)
+        self.dataset = pd.read_csv(path)
 
-    def get_col(self, idx):
-        return [row[idx] for row in self.dataset]
+    def get_col_type(self, col_id):
+        col = self.dataset[col_id]
+        print(col)
+        if all(isinstance(x, (int, float)) for x in col):  # numericals
+            col_type = "num"
+        elif all(isinstance(x, str) for x in col):  # strings
+            col_type = "str"
+        else:
+            col_type = "mixed"
+
+        if _is_categorical(col):  # both types can be categorical as well
+            col_type += "_cat"
+
+        return col_type
 
     def categorize(self, col_ids):
         for col_id in col_ids:
-            col_type = _get_col_type(self.get_col(col_id))
+            col_type = self.get_col_type(col_id)
             assert "cat" in col_type, "Trying to encode non-categorical feature"
 
             print(col_type)
 
-        ct = ColumnTransformer(
-            [('one_hot_encoder', OneHotEncoder(categories='auto'), col_ids)], remainder='passthrough'
-        )
-        self.dataset = ct.fit_transform(self.dataset)
+        self.dataset = pd.get_dummies(self.dataset, prefix=col_ids, columns=col_ids)
 
     def normalize(self, axis=0):
-        self.dataset = normalize(self.dataset, axis=axis)
+        self.dataset = pd.DataFrame(normalize(self.dataset, axis=axis), columns=self.dataset.columns)
+
+
+def test(csv):
+    data = load_csv(csv)
+    data.categorize(data.dataset.columns)
+    data.normalize(axis=0)
+    print(data)
 
 
 def main():
-    data = load_csv("test2.csv")
-    print(data)
-    # print(data.get_col(0))
-    # # print(data)
-    # print(data.dataset[2].shape)
-    data.categorize([0, 1])
-    data.normalize(axis=0)
-    print(data)
+    test(csv="car.csv")
 
 
 if __name__ == '__main__':
