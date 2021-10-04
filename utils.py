@@ -2,7 +2,6 @@ import pandas as pd
 
 
 def _is_categorical(col: pd.Series):
-    # n_unique = len(set(col))
     n_values = len(col)
     n_unique = len(col.unique())
 
